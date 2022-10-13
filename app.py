@@ -3,8 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import date
 
 
-
-
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://trello_dev:password123@127.0.0.1:5432/trello'
@@ -27,22 +25,38 @@ def create_db():
 
 @app.cli.command('seed')
 def seed_db():
-    card = Card(
-        title = 'Start the project',
-        description = 'Stage 1 - Create the database',
-        status = 'To Do',
-        priority = 'High',
-        date = date.today()
-    )
-    card2 = Card(
-        title = 'Create cards',
-        description = 'Stage 1 - Create the database - Continued',
-        status = 'To Do',
-        priority = 'High',
-        date = date.today()
-    )
-    db.session.add(card)
-    db.session.add(card2)
+    cards = [
+        Card(
+            title = 'Start the project',
+            description = 'Stage 1 - Create the database',
+            status = 'To Do',
+            priority = 'High',
+            date = date.today()
+        ),
+        Card(
+            title = "SQLAlchemy",
+            description = "Stage 2 - Integrate ORM",
+            status = "Ongoing",
+            priority = "High",
+            date = date.today()
+        ),
+        Card(
+            title = "ORM Queries",
+            description = "Stage 3 - Implement several queries",
+            status = "Ongoing",
+            priority = "Medium",
+            date = date.today()
+        ),
+        Card(
+            title = "Marshmallow",
+            description = "Stage 4 - Implement Marshmallow to jsonify models",
+            status = "Ongoing",
+            priority = "Medium",
+            date = date.today()
+        )
+    ]
+
+    db.session.add_all(cards)
     db.session.commit()
     print('Tables seeded!')
 
@@ -52,7 +66,31 @@ def drop_tables():
     print('Tables dropped')
 
 
+@app.cli.command('all_cards')
+def all_cards():
+    # cards = Card.query.all()
+    # print(cards[0].__dict__)
+    stmt = db.select(Card).order_by(Card.priority.desc(), Card.title)
+    cards = db.session.scalars(stmt)
+    [print(card.priority, card.title) for card in cards]
+
+@app.cli.command('first_card')
+def first_card():
+    # card = Card.query.first()
+    # print(card.__dict__)
+    stmt = db.select(Card).limit(1)
+    card = db.session.scalar(stmt)
+    print(card.__dict__)
+
+
+@app.cli.command('count_ongoing')
+def count():
+    stmt = db.select(db.func.count()).select_from(Card).filter_by(status = 'Ongoing')
+    cards = db.session.scalar(stmt)
+    print(cards)
+
+
 @app.route('/')
 def index():
-    return 'Welcome to my page!'
+    return 'Welcome to my Flask - ORM class!'
 
