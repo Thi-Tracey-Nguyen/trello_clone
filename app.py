@@ -1,13 +1,15 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import date
-
+from flask_marshmallow import Marshmallow
 
 app = Flask(__name__)
+app.config['JSON_SORT_KEYS'] = False
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://trello_dev:password123@127.0.0.1:5432/trello'
 
 db = SQLAlchemy(app)
+ma = Marshmallow(app)
 
 class Card(db.Model):
     __tablename__ = 'cards'
@@ -17,6 +19,11 @@ class Card(db.Model):
     date = db.Column(db.Date)
     status = db.Column(db.String)
     priority = db.Column(db.String)
+
+class CardSchema(ma.Schema):
+    class Meta:
+        fields = ("id", "title", "description", "date", "status", "priority")
+        ordered = True
 
 @app.cli.command('create')
 def create_db():
@@ -66,13 +73,14 @@ def drop_tables():
     print('Tables dropped')
 
 
-@app.cli.command('all_cards')
+@app.route('/cards/')
 def all_cards():
     # cards = Card.query.all()
     # print(cards[0].__dict__)
-    stmt = db.select(Card).order_by(Card.priority.desc(), Card.title)
+    stmt = db.select(Card)
     cards = db.session.scalars(stmt)
-    [print(card.priority, card.title) for card in cards]
+    return CardSchema(many=True).dump(cards)
+    # [print(card.priority, card.title) for card in cards]
 
 @app.cli.command('first_card')
 def first_card():
