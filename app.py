@@ -2,6 +2,8 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import date
 from flask_marshmallow import Marshmallow
+from flask_bcrypt import Bcrypt
+
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
@@ -10,6 +12,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://trello_dev:passwo
 
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
+bcrypt = Bcrypt(app)
+
+
 
 class Card(db.Model):
     __tablename__ = 'cards'
@@ -19,6 +24,23 @@ class Card(db.Model):
     date = db.Column(db.Date)
     status = db.Column(db.String)
     priority = db.Column(db.String)
+
+class User(db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String)
+    email = db.Column(db.String, nullable=False, unique=True)
+    password = db.Column(db.String, nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+
+
+class UserSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'name', 'email', 'is_admin')
+
+
+
 
 class CardSchema(ma.Schema):
     class Meta:
@@ -62,8 +84,21 @@ def seed_db():
             date = date.today()
         )
     ]
+    users = [
+        User(
+            email = 'admin@spam.com',
+            password = bcrypt.generate_password_hash('eggs').decode('utf-8'),
+            is_admin = True,
+        ),
+        User(
+            name = 'Tracey', 
+            email = 'tracey@spam.com',
+            password = bcrypt.generate_password_hash('12345').decode('utf-8'),
+        ),
+    ]
 
     db.session.add_all(cards)
+    db.session.add_all(users)
     db.session.commit()
     print('Tables seeded!')
 
@@ -76,12 +111,11 @@ def drop_tables():
 @app.route('/cards/')
 def all_cards():
     # cards = Card.query.all()
-    # print(cards[0].__dict__)
-    stmt = db.select(Card)
+    # return CardSchema(many=True).dump(cards)
+    stmt = db.select(Card).order_by(Card.priority, Card.title)
     cards = db.session.scalars(stmt)
     return CardSchema(many=True).dump(cards)
-    # [print(card.priority, card.title) for card in cards]
-
+  
 @app.cli.command('first_card')
 def first_card():
     # card = Card.query.first()
